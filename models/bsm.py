@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.stats import norm
+from scipy.optimize import minimize, brentq, newton
 
 class BlackScholesModel:
     def __init__(self):
@@ -33,8 +34,25 @@ class BlackScholesModel:
         #print("Put Price:", put_price)
         return put_price
     
-    def implied_volatility(self, market_price, S0, K, T, r, option_type, initial_guess=0.2, tol=1e-5, max_iterations=100):
-        pass
+    def implied_volatility(self, market_price, S0, K, T, r, option_type, lower = 1e-4, upper = 5, tol=1e-6):
+        def objective_function(sigma):
+            #print("Trying sigma:", sigma)
+            model_price = self.price_options(S0, K, T, r, sigma, option_type)
+            return model_price - market_price
+        def d_objective_function(sigma):
+            #print("Calculating Vega for sigma:", sigma)
+            return self.calculate_vega(S0, K, T, r, sigma, option_type)
+        try:
+            result = newton(objective_function, x0=0.15, tol=tol, maxiter=100)
+        except RuntimeError as e:
+            print("Newton's method failed:", e)
+            try:
+                result = brentq(objective_function, a=lower, b=upper, xtol=tol, maxiter=100)
+            except ValueError as ve:
+                print("Brent's method failed:", ve)
+                result = np.nan
+        return result
+
 
     def calculate_delta(self, S0, K, T, r, sigma, option_type):
         if T <= 0:
